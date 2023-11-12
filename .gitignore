@@ -214,11 +214,13 @@ dim(cook_county_data_robin_hood)
 
 cook_county_data_robin_hood$log_medhhinc <- log(cook_county_data_robin_hood$medhhinc)
   
-modified_model <- log_transformed_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data_robin_hood)
-summary(modified_model)
+# modified_model <- log_transformed_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data_robin_hood)
+# summary(modified_model)
+
+#6 model degrees of freedom
 
 # Predict baccalaureate attainment with modified data
-predicted_attainment <- predict(modified_model, newdata = cook_county_data)
+predicted_attainment <- predict(final_model, newdata = cook_county_data_robin_hood)
 mean(predicted_attainment)
 print(predicted_attainment)
 hist(predicted_attainment)
@@ -230,14 +232,14 @@ print(Original_attainment)
 hist(Original_attainment)
 
 # Calculate the mean squared error for each model
-mse_model1 <- mean((cook_county_data$propbac - Original_attainment)^2)
-mse_model2 <- mean((cook_county_data_robin_hood$propbac - predicted_attainment)^2)
+# mse_model1 <- mean((cook_county_data$propbac - Original_attainment)^2)
+# mse_model2 <- mean((cook_county_data_robin_hood$propbac - predicted_attainment)^2)
 
 # Print or visualize the mean squared errors
-print(c("Model 1 MSE" = mse_model1, "Model 2 MSE" = mse_model2))
+# print(c("Model 1 MSE" = mse_model1, "Model 2 MSE" = mse_model2))
 # Model 2 is greater than Model 1 suggests that Model 1 was better
 
 # Calculate net effect
 net_effect <- mean(predicted_attainment - Original_attainment)
 print(net_effect)
-# Negatvie net effect - oppose based on model
+# Positive net effect - pro based on model
