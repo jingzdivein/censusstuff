@@ -1,49 +1,243 @@
-# History files
-.Rhistory
-.Rapp.history
+install.packages("tidycensus")
+install.packages("tidyverse")
+install.packages("acs")
+install.packages("sf")
+install.packages("Hmisc")
+library(Hmisc)
+library(tidycensus)
+library(tidyverse)
+library(acs)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(MASS)
+library(sf)
 
-# Session Data files
-.RData
-.RDataTmp
+#2
+readRenviron("~/.Renviron")
+census_api_key("XXXXX", install = TRUE)
 
-# User-specific files
-.Ruserdata
+#3a and b
+cook_county_data <- get_acs(geography = "tract", variables = c('DP05_0001E','DP05_0018E','DP03_0062E','DP02_0065PE','DP03_0096PE','DP03_0128PE','DP04_0047PE'), 
+                            year = 2019, output = "wide", geometry = TRUE,
+                            state = "IL", county = "Cook County", survey = "acs5")
 
-# Example code in package build process
-*-Ex.R
+#3c
+cook_county_data <- subset(cook_county_data, select = -c(DP05_0001M,DP05_0018M,DP03_0062M,DP02_0065PM,DP03_0096PM,DP03_0128PM,DP04_0047PM))
 
-# Output files from R CMD build
-/*.tar.gz
+#3d
+names(cook_county_data)[names(cook_county_data) %in% c(
+  'DP05_0001E','DP05_0018E','DP03_0062E','DP02_0065PE','DP03_0096PE','DP03_0128PE',
+  'DP04_0047PE')] <- c('totpop','medage','medhhinc','propbac','propcov','proppov','proprent')
 
-# Output files from R CMD check
-/*.Rcheck/
+head(cook_county_data)
+summary(cook_county_data)
 
-# RStudio files
-.Rproj.user/
+explanatory_variables <- c('totpop','medage','medhhinc','propbac','propcov','proppov','proprent')
+# totpop = total population
+# medage = median age
+# medhhinc = median household income
+# propbac = "Percent!!EDUCATIONAL ATTAINMENT!!Population 25 years and over!!Bachelor's degree"
+# propcov = "Percent!!HEALTH INSURANCE COVERAGE!!Civilian noninstitutionalized population!!With health insurance coverage"
+# proppov = "Percent!!PERCENTAGE OF FAMILIES AND PEOPLE WHOSE INCOME IN THE PAST 12 MONTHS IS BELOW THE POVERTY LEVEL!!All people"
+# proprent = "Percent!!HOUSING TENURE!!Occupied housing units!!Renter-occupied"
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
+# Create individual scatterplots for each explanatory variable using ggplot2
+for (variable in explanatory_variables) {
+  plot_title <- paste("Scatterplot of", variable, "vs. Bac Percert")
+  
+  p <- ggplot(cook_county_data, aes(x = !!as.name(variable), y = propbac)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "red") +
+    labs(title = plot_title, x = variable, y = "Baccalaureate Attainment Rate") +
+    theme_minimal()
+  
+  print(p)
+}
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
+#4
+cook_county_data_geo <- subset(cook_county_data, select = c(propbac,geometry))
+head(cook_county_data_geo)
 
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
+ggplot() +
+  geom_sf(data = cook_county_data_geo, aes(fill = propbac), color = "white") +
+  scale_fill_viridis_c(name = "Baccalaureate Attainment Rate", option = "B") +
+  labs(title = "Baccalaureate Attainment Rates in Cook County, IL",
+       subtitle = "Census Tracts",
+       caption = "Source: U.S. Census Bureau ACS 5-year estimates (2015-2019)",
+       fill = "Attainment Rate (%)") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 20, face = "bold"),
+        plot.subtitle = element_text(size = 16),
+        plot.caption = element_text(hjust = 0),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14)) +
+  coord_sf(datum = NA)
 
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
+#5
+model1 <- lm(propbac ~ medhhinc, data = cook_county_data)
+summary(model1)
 
-# R Environment Variables
-.Renviron
+#6
+# Extract numbers from the text_column and create a new column named 'numbers'
+cook_county_data$tract_numbers <- as.numeric(str_extract(cook_county_data$NAME, "\\d+"))
+print(cook_county_data)
 
-# pkgdown site
-docs/
+ggplot(cook_county_data, aes(x = medhhinc, y = propbac, color = tract_numbers)) +
+  geom_point() +  # Add points for the scatterplot
+  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Add the linear regression trend line
+  labs(title = "Median Household Income vs. Baccalaureate Attainment",
+       x = "Median Household Income",
+       y = "Baccalaureate Attainment Rate") +
+  scale_color_gradient(low = "blue", high = "red") +  # Define the color scale
+  theme_minimal() +
+  theme(plot.title = element_text(size = 20, face = "bold"),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14))
 
-# translation temp files
-po/*~
+#7a
+# Shapiro-Wilk test for normality
+shapiro.test(residuals(model1))
 
-# RStudio Connect folder
-rsconnect/
+# QQ plot for visual inspection
+qqnorm(residuals(model1))
+qqline(residuals(model1))
+
+#7b
+# Durbin-Watson test
+durbinWatsonTest(model1)
+
+# ACF plot
+acf(residuals(model1))
+
+#7c
+# Breusch-Pagan test
+library(lmtest)
+bptest(model1)
+
+# Residuals vs. Fitted plot
+plot(model1$fitted.values, residuals(model1), xlab = "Fitted Values", ylab = "Residuals", main = "Residuals vs. Fitted")
+abline(h = 0, col = "red")
+
+#8a
+summary(cook_county_data)
+cook_county_data <- na.omit(cook_county_data)
+model_intercept <- lm(propbac ~ 1, data = cook_county_data)
+forward <- step(model_intercept, direction='forward', scope=~ totpop+medage+medhhinc+propcov+proppov+proprent)
+
+#Lowest AIC - propbac ~ medhhinc + proprent + proppov + propcov
+
+selected_explanatory_variables <- c('medhhinc','propcov','proppov','proprent')
+
+# Create individual scatterplots for each explanatory variable using ggplot2
+for (variable in selected_explanatory_variables) {
+  plot_title <- paste("Scatterplot of", variable, "vs. Baccalaureate Attainment Rate")
+  
+  p <- ggplot(cook_county_data, aes(x = !!as.name(variable), y = propbac)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "red") +
+    labs(title = plot_title, x = variable, y = "Baccalaureate Attainment Rate") +
+    theme_minimal()
+  
+  print(p)
+}
+
+#8b and d
+model2 <- lm(propbac ~ propcov + proppov + medhhinc + proprent, data = cook_county_data)
+summary(model2)
+
+cook_county_data$propcov <- replace(cook_county_data$propcov, cook_county_data$propcov == 0, 1)
+cook_county_data$proppov <- replace(cook_county_data$proppov, cook_county_data$proppov == 0, 1)
+dim(cook_county_data)
+
+cook_county_data$log_propcov <- log(cook_county_data$propcov)
+cook_county_data$log_proppov <- log(cook_county_data$proppov)
+cook_county_data$log_medhhinc <- log(cook_county_data$medhhinc)
+dim(cook_county_data)
+
+log_transformed_model <- lm(propbac ~ log_propcov + log_proppov + log_medhhinc + proprent, data = cook_county_data)
+summary(log_transformed_model)
+
+numeric_columns <- st_drop_geometry(cook_county_data)
+print(cor(nmmeric_columns))
+
+model3 <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data)
+summary(model3)
+
+hist(cook_county_data$medhhinc)
+sort(cook_county_data$medhhinc)
+
+cook_county_data <- within(cook_county_data, {  
+  medhhinc_cat <- NA # need to initialize variable
+  medhhinc_cat[medhhinc < 50000] <- "Low"
+  medhhinc_cat[medhhinc >= 50000 & medhhinc < 100000] <- "Middle"
+  medhhinc_cat[medhhinc >= 100000] <- "High"
+} )
+
+cook_county_data$medhhinc_cat <- factor(cook_county_data$medhhinc_cat, levels = c("High", "Middle", "Low"))
+str(cook_county_data)
+summary(cook_county_data$medhhinc_cat)
+
+model4 <- log_transformed_model <- lm(propbac ~ log_propcov + medhhinc_cat * log_proppov + proprent, data = cook_county_data)
+summary(model4)
+
+#There are some outliers in proppov greater than 60
+dim(cook_county_data)
+cook_county_data <- subset(cook_county_data, proppov < 60)
+
+dim(cook_county_data)
+
+final_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data)
+summary(Final_model)
+
+#9
+cook_county_data_robin_hood <- cook_county_data
+summary(cook_county_data_robin_hood)
+dim(cook_county_data_robin_hood)
+
+  # Identify the 50 highest-earning tracts
+  high_income_indices <- order(-cook_county_data_robin_hood$medhhinc)[1:50]
+  
+  # Identify the 50 lowest-earning tracts
+  low_income_indices <- order(cook_county_data_robin_hood$medhhinc)[1:50]
+  
+  # Adjust the median household income in the 50 highest-earning tracts
+  cook_county_data_robin_hood$medhhinc[high_income_indices] <- 
+    cook_county_data_robin_hood$medhhinc[high_income_indices] - 10000
+  
+  # Adjust the median household income in the 50 lowest-earning tracts
+  cook_county_data_robin_hood$medhhinc[low_income_indices] <- 
+    cook_county_data_robin_hood$medhhinc[low_income_indices] + 10000
+
+cook_county_data_robin_hood$log_medhhinc <- log(cook_county_data_robin_hood$medhhinc)
+  
+modified_model <- log_transformed_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data_robin_hood)
+summary(modified_model)
+
+# Predict baccalaureate attainment with modified data
+predicted_attainment <- predict(modified_model, newdata = cook_county_data)
+mean(predicted_attainment)
+print(predicted_attainment)
+hist(predicted_attainment)
+
+# Original baccalaureate attainment with modified data
+Original_attainment <- predict(final_model, newdata = cook_county_data)
+mean(Original_attainment)
+print(Original_attainment)
+hist(Original_attainment)
+
+# Calculate the mean squared error for each model
+mse_model1 <- mean((cook_county_data$propbac - Original_attainment)^2)
+mse_model2 <- mean((cook_county_data_robin_hood$propbac - predicted_attainment)^2)
+
+# Print or visualize the mean squared errors
+print(c("Model 1 MSE" = mse_model1, "Model 2 MSE" = mse_model2))
+# Model 2 is greater than Model 1 suggests that Model 1 was better
+
+# Calculate net effect
+net_effect <- mean(predicted_attainment - Original_attainment)
+print(net_effect)
+# Negatvie net effect - oppose based on model
