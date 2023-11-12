@@ -16,7 +16,7 @@ library(sf)
 
 #2
 readRenviron("~/.Renviron")
-census_api_key("XXXXX", install = TRUE)
+census_api_key("2e01dd39fe7566c17b1727db122d51715ec9ee9d", install = TRUE)
 
 #3a and b
 cook_county_data <- get_acs(geography = "tract", variables = c('DP05_0001E','DP05_0018E','DP03_0062E','DP02_0065PE','DP03_0096PE','DP03_0128PE','DP04_0047PE'), 
@@ -191,7 +191,7 @@ cook_county_data <- subset(cook_county_data, proppov < 60)
 dim(cook_county_data)
 
 final_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data)
-summary(Final_model)
+summary(final_model)
 
 #9
 cook_county_data_robin_hood <- cook_county_data
