@@ -186,9 +186,9 @@ summary(model4)
 
 #There are some outliers in proppov greater than 60
 dim(cook_county_data)
-cook_county_data <- subset(cook_county_data, proppov < 60)
+# cook_county_data <- subset(cook_county_data, proppov < 60)
 
-dim(cook_county_data)
+# dim(cook_county_data)
 
 final_model <- lm(propbac ~ log_propcov + log_medhhinc * log_proppov + proprent, data = cook_county_data)
 summary(final_model)
@@ -218,6 +218,7 @@ cook_county_data_robin_hood$log_medhhinc <- log(cook_county_data_robin_hood$medh
 # summary(modified_model)
 
 #6 model degrees of freedom
+# There are 6 model degrees of freedom
 
 # Predict baccalaureate attainment with modified data
 predicted_attainment <- predict(final_model, newdata = cook_county_data_robin_hood)
